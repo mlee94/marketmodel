@@ -145,12 +145,13 @@ def get_pie_chart(df):
     return dash_chart
 
 
-@app.callback(
-    Output('channel-chart', 'children'),
-    # Output('adspend-chart', 'children'),
-    # Output('revenue-chart', 'children'),
-    # Output('pie-chart', 'children'),
-    Input('sample-data', 'data'), prevent_initial_call=True,
+@app.callback([
+    # Output('channel-chart', 'children'),
+    Output('adspend-chart', 'children'),
+    Output('revenue-chart', 'children'),
+    Output('pie-chart', 'children'),
+], Input('sample-data', 'data'),
+    # prevent_initial_call=True,
 )
 def display_widgets(data):
     if not data:
@@ -158,14 +159,14 @@ def display_widgets(data):
 
     df = pd.DataFrame.from_dict(data)
 
-    # col_totals = df.sum(axis=0)
-    # channel_totals = col_totals[['channel' in s for s in col_totals.index]]
-    # target_total = (col_totals.loc['target'] / channel_totals.sum()).round(2)
+    col_totals = df.sum(axis=0)
+    channel_totals = col_totals[['channel' in s for s in col_totals.index]]
+    target_total = (col_totals.loc['target'] / channel_totals.sum()).round(2)
 
     # CHARTS
-    fig1 = create_chart(df)
-    # fig2 = ad_spend_per_channel(channel_totals)
-    # fig3 = revenue_time_series(df)
-    # fig4 = get_pie_chart(channel_totals)
+    # fig1 = create_chart(df)
+    fig2 = ad_spend_per_channel(channel_totals)
+    fig3 = revenue_time_series(df)
+    fig4 = get_pie_chart(channel_totals)
 
-    return fig1
+    return fig2, fig3, fig4
