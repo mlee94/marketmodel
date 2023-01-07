@@ -135,7 +135,7 @@ def get_pie_chart(df):
     df = df.rename('totals').astype(int).to_frame()
     df.index = df.index.rename('channel')
 
-    fig = px.pie(df.reset_index(), values='totals', names='channel', title='Market Mix Strategy')
+    fig = px.pie(df.reset_index(), values='totals', names='channel')
     dash_chart = dcc.Graph(
         id='raw-pie-plot',
         figure=fig,
@@ -145,11 +145,90 @@ def get_pie_chart(df):
     return dash_chart
 
 
+def get_return_ad_spend_card(total):
+    fig = go.Figure()
+    fig.add_trace(go.Indicator(
+        mode="number",
+        value=total,
+        number={"font":{"size":35}},
+        domain={'row': 0, 'column': 0}
+    ))
+    fig.update_layout(
+        grid={'rows': 1, 'columns': 1, 'pattern': "independent"},
+        template={'data': {'indicator': [{
+            'mode': "number",
+        }]}
+        },
+        height=200,
+    )
+    dash_chart = dcc.Graph(
+        id='raw-return-indicator',
+        figure=fig,
+        style={'height': '100%', 'width': '100%'},
+        config={'displayModeBar': False, 'displaylogo': False},
+    )
+    return dash_chart
+
+
+def get_total_ad_spend_card(total):
+    fig = go.Figure()
+    fig.add_trace(go.Indicator(
+        mode="number",
+        value=total,
+        number={"prefix": "$", "font":{"size":35}},
+        domain={'row': 0, 'column': 0}
+    ))
+    fig.update_layout(
+        grid={'rows': 1, 'columns': 1, 'pattern': "independent"},
+        template={'data': {'indicator': [{
+            'mode': "number",
+        }]}
+        },
+        height=200,
+    )
+    dash_chart = dcc.Graph(
+        id='raw-spend-indicator',
+        figure=fig,
+        style={'height': '100%', 'width': '100%'},
+        config={'displayModeBar': False, 'displaylogo': False},
+    )
+    return dash_chart
+
+
+def get_total_revenue_card(total):
+    fig = go.Figure()
+    fig.add_trace(go.Indicator(
+        mode="number",
+        value=total,
+        number={"prefix": "$", "font":{"size":35}},
+        domain={'row': 0, 'column': 0}
+    ))
+    fig.update_layout(
+        grid={'rows': 1, 'columns': 1, 'pattern': "independent"},
+        template={'data': {'indicator': [{
+            'mode': "number",
+        }]},
+        },
+        height=200,
+    )
+    dash_chart = dcc.Graph(
+        id='raw-rev-indicator',
+        figure=fig,
+        style={'height': '100%', 'width': '100%'},
+        config={'displayModeBar': False, 'displaylogo': False},
+    )
+    return dash_chart
+
+
+
 @app.callback([
     # Output('channel-chart', 'children'),
     Output('adspend-chart', 'children'),
     Output('revenue-chart', 'children'),
     Output('pie-chart', 'children'),
+    Output('ad-return-indicator', 'children'),
+    Output('total-adspend-indicator', 'children'),
+    Output('rev-indicator', 'children'),
 ], Input('sample-data', 'data'),
     # prevent_initial_call=True,
 )
@@ -161,12 +240,16 @@ def display_widgets(data):
 
     col_totals = df.sum(axis=0)
     channel_totals = col_totals[['channel' in s for s in col_totals.index]]
-    target_total = (col_totals.loc['target'] / channel_totals.sum()).round(2)
+    target_total = col_totals.loc['target']
+    return_on_spend = (target_total / channel_totals.sum()).round(2)
 
     # CHARTS
     # fig1 = create_chart(df)
     fig2 = ad_spend_per_channel(channel_totals)
     fig3 = revenue_time_series(df)
     fig4 = get_pie_chart(channel_totals)
+    fig5 = get_return_ad_spend_card(return_on_spend)
+    fig6 = get_total_ad_spend_card(channel_totals.sum().astype(int))
+    fig7 = get_total_revenue_card(target_total)
 
-    return fig2, fig3, fig4
+    return fig2, fig3, fig4, fig5, fig6, fig7

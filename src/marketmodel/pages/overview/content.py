@@ -12,12 +12,18 @@ page_content = [
     html.Div(
         dbc.Container([
             dbc.Row([
-                dbc.Col(cards.ad_spend_card),
-                dbc.Col(cards.revenue_card)
-            ], style={'height': '100%'}
+                dbc.Col(cards.return_ad_spend_card, width=4),
+                dbc.Col(cards.total_ad_spend_card, width=4),
+                dbc.Col(cards.revenue_earnings_card, width=4),
+            ], className="h-15"
             ),
             dbc.Row([
-                dbc.Col(cards.pie_card),
+                dbc.Col(cards.ad_spend_card, width=7),
+                dbc.Col(cards.revenue_card),
+            ], style={'height': '40%'}
+            ),
+            dbc.Row([
+                dbc.Col(cards.pie_card, width=7),
             ], style={'height': '30%'}
             )
         ])

@@ -29,7 +29,7 @@ app = DashProxy(
     f'{__package__}',
     server=server,
     assets_folder='assets',
-    # external_stylesheets=[dbc.themes.BOOTSTRAP, FA],
+    external_stylesheets=[dbc.themes.BOOTSTRAP, FA],
     transforms=[
         TriggerTransform(),
         MultiplexerTransform(),
