@@ -20,17 +20,6 @@ from marketmodel.pages.features import sidebar
 from marketmodel.pages.generative.callbacks import *
 from marketmodel.dash_config import app
 
-
-def generate_sample_data(data_size, test_size, n_channels, n_features):
-    media_data, extra_features, target, costs = utils.simulate_dummy_data(
-        data_size=data_size + test_size,
-        n_media_channels=n_channels,
-        n_extra_features=n_features,
-    )
-    params = [media_data, extra_features, target, costs]
-    return params
-
-
 page_content = [
     # dcc.Download('downloadable-data'),
     html.H1(children='Media Mix Modelling'),

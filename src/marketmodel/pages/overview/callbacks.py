@@ -1,7 +1,7 @@
 import jax.numpy as jnp
 import numpyro
 
-from dash import Dash, html, dcc, Input, Output, State, no_update
+from dash import Dash, html, dcc, Input, Output, State, no_update, callback_context
 import dash_daq as daq
 from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
@@ -95,11 +95,13 @@ def create_chart(df):
         #     col=1
         # )
 
-    dash_chart = dcc.Graph(
-        id='raw-media-plot',
-        figure=fig,
-        style={'height': '100%', 'width': '100%'},
-        config={'displayModeBar': False, 'displaylogo': False},
+    dash_chart = (
+        dcc.Graph(
+            id='raw-media-plot',
+            figure=fig,
+            style={'height': '100%', 'width': '100%'},
+            config={'displayModeBar': False, 'displaylogo': False},
+        ),
     )
 
     return dash_chart
@@ -111,12 +113,14 @@ def ad_spend_per_channel(df):
     df.index = df.index.rename('channel')
 
     fig = px.bar(df.reset_index(), x="totals", y="channel", text='totals', color='channel', orientation='h')
+
     dash_chart = dcc.Graph(
         id='raw-spend-per-channel-plot',
         figure=fig,
         style={'height': '100%', 'width': '100%'},
         config={'displayModeBar': False, 'displaylogo': False},
     )
+
     return dash_chart
 
 
@@ -219,6 +223,50 @@ def get_total_revenue_card(total):
     )
     return dash_chart
 
+
+@app.callback(
+    Output('raw-spend-per-channel-plot', 'figure'),
+    Output('back-button', 'style'), #to hide/unhide the back button
+    Input('raw-spend-per-channel-plot', 'clickData'),    #for getting the vendor name from graph
+    Input('back-button', 'n_clicks'),
+    State('sample-data', 'data'),
+)
+def drilldown(click_data, n_clicks, data):
+    # https://community.plotly.com/t/show-and-tell-drill-down-functionality-in-dash-using-callback-context/54403?u=atharvakatre
+    data = pd.DataFrame.from_dict(data)
+
+    data_stacked = data.stack()
+    data_stacked.index = data_stacked.index.rename('attribute', -1)
+    data_stacked = data_stacked.rename('quantity').to_frame().reset_index()
+
+    col_totals = data.sum(axis=0)
+    channel_totals = col_totals[['channel' in s for s in col_totals.index]]
+
+    # using callback context to check which input was fired
+    # trigger_id = ctx.triggered[0]["prop_id"].split(".")[0]
+    trigger_id = callback_context.triggered_id
+
+    if trigger_id == 'graph':
+
+        # get vendor name from clickData
+        if click_data is not None:
+            channel = click_data['points'][0]['label']
+
+            if channel in data_stacked['attribute'].unique():
+                # creating df for clicked vendor
+                channel_sales_df = data_stacked[data_stacked['attribute'] == channel]
+
+                # generating product sales bar graph
+                fig = px.line(channel_sales_df, y='quantity', color='attribute')
+                fig.update_layout(title=f'<b>{channel} spend<b>'.format(channel),
+                                  showlegend=False, template='presentation')
+                return fig, {'display':'block'}     #returning the fig and unhiding the back button
+
+            else:
+                return ad_spend_per_channel(channel_totals), {'display': 'none'}     #hiding the back button
+
+    else:
+        return ad_spend_per_channel(channel_totals), {'display':'none'}
 
 
 @app.callback([

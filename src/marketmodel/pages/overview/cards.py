@@ -115,6 +115,7 @@ ad_spend_card = dbc.Card([
             html.Div('Ad Spend per Channel', style={'padding': '0 7px', 'flex': '0 1 auto'}),
         ], style={'display': 'flex', 'alignItems': 'center'})
     ),
+    dbc.Button('🡠', id='back-button', outline=True, size="sm", className='mt-2 ml-2 col-1', style={'display': 'none'}),
     dbc.CardBody(
         dcc.Loading(
             id='loading-adspend-plots',
