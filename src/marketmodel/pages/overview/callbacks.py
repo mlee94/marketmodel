@@ -204,16 +204,17 @@ def display_widgets(data):
     df = pd.DataFrame.from_dict(data)
 
     col_totals = df.sum(axis=0)
-    channel_totals = col_totals[['channel' in s for s in col_totals.index]]
+    impression_totals = col_totals[['channel' in s for s in col_totals.index]]
+    cost_totals = col_totals[['cost' in s for s in col_totals.index]]
     target_total = col_totals.loc['target']
-    return_on_spend = (target_total / channel_totals.sum()).round(2)
+    return_on_spend = (target_total / cost_totals.sum()).round(2)
 
     # CHARTS
     # fig1 = create_chart(df)
     fig3 = revenue_time_series(df)
-    fig4 = get_pie_chart(channel_totals)
+    fig4 = get_pie_chart(cost_totals)
     fig5 = get_return_ad_spend_card(return_on_spend)
-    fig6 = get_total_ad_spend_card(channel_totals.sum().astype(int))
+    fig6 = get_total_ad_spend_card(cost_totals.sum().astype(int))
     fig7 = get_total_revenue_card(target_total)
 
     return fig3, fig4, fig5, fig6, fig7
@@ -240,7 +241,7 @@ def drilldown(click_data, n_clicks, data):
     data_stacked = data_stacked.rename('quantity').to_frame().reset_index()
 
     col_totals = data.sum(axis=0)
-    channel_totals = col_totals[['channel' in s for s in col_totals.index]]
+    channel_totals = col_totals[['cost' in s for s in col_totals.index]]
 
     # using callback context to check which input was fired
     # trigger_id = ctx.triggered[0]["prop_id"].split(".")[0]

@@ -25,6 +25,8 @@ def generate_sample_data(data_size, test_size, n_channels, n_features):
         n_media_channels=n_channels,
         n_extra_features=n_features,
     )
+    # Convert costs to daily series
+    costs = media_data * 0.15
     params = [media_data, extra_features, target, costs]
     return params
 
@@ -51,13 +53,15 @@ def generate_data(n_clicks, data_len, test_len, channel_sz, extra_features_sz):
         extra_features_sz,
     )
 
-    channels_col = [f'channel_{i}' for i in range(1,media_data.shape[1]+1)]
+    impressions_col = [f'channel_{i}' for i in range(1,media_data.shape[1]+1)]
+    costs_col = [f'cost_{i}' for i in range(1,costs.shape[1]+1)]
     extra_features_col = [f'extra_feature_{i}' for i in range(1,extra_features.shape[1]+1)]
-    columns = ['target'] + channels_col + extra_features_col
+
+    columns = ['target'] + impressions_col + costs_col + extra_features_col
 
 
     df = pd.DataFrame(
-        data=np.hstack((target.reshape(-1, 1), media_data, extra_features)),
+        data=np.hstack((target.reshape(-1, 1), media_data, costs, extra_features)),
         columns=columns
     )
     return df.to_dict(orient='list') # dcc.send_data_frame(df.to_csv, 'mmm_data.csv')
