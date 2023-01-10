@@ -35,6 +35,10 @@ media_time_series_card = dbc.Card([
 return_ad_spend_card = dbc.Card([
     dbc.CardHeader(
         html.Div([
+            html.Div(
+                html.Img(src='assets/return-on-ad-spend.png', height='60px', style={'filter': 'invert(100%)'}),
+                style={'height': '90px', 'width': '90px'}, className='img describeblue',
+            ),
             html.Div('Return On Ad Spend', style={'padding': '0 7px', 'flex': '0 1 auto'}),
         ], style={'display': 'flex', 'alignItems': 'center'})
     ),
@@ -60,6 +64,10 @@ return_ad_spend_card = dbc.Card([
 total_ad_spend_card = dbc.Card([
     dbc.CardHeader(
         html.Div([
+            html.Div(
+                html.Img(src='assets/ad-spend-last-12-months.png', height='60px', style={'filter': 'invert(100%)'}),
+                style={'height': '90px', 'width': '90px'}, className='img describeblue',
+            ),
             html.Div('Total Ad Spending', style={'padding': '0 7px', 'flex': '0 1 auto'}),
         ], style={'display': 'flex', 'alignItems': 'center'})
     ),
@@ -85,6 +93,10 @@ total_ad_spend_card = dbc.Card([
 revenue_earnings_card = dbc.Card([
     dbc.CardHeader(
         html.Div([
+            html.Div(
+                html.Img(src='assets/revenue-last-12-months.png', height='60px', style={'filter': 'invert(100%)'}),
+                style={'height': '90px', 'width': '90px'}, className='img describeblue',
+            ),
             html.Div('Revenue Last 12 Months', style={'padding': '0 7px', 'flex': '0 1 auto'}),
         ], style={'display': 'flex', 'alignItems': 'center'})
     ),
@@ -109,10 +121,14 @@ revenue_earnings_card = dbc.Card([
 ad_spend_card = dbc.Card([
     dbc.CardHeader(
         html.Div([
+            html.Div(
+                html.Img(src='assets/Metrics.png', height='60px', style={'filter': 'invert(100%)'}),
+                style={'height': '90px', 'width': '90px'}, className='img diagnoseblue',
+            ),
             html.Div('Ad Spend per Channel', style={'padding': '0 7px', 'flex': '0 1 auto'}),
         ], style={'display': 'flex', 'alignItems': 'center'})
     ),
-    dbc.Button('🡠', id='back-button', outline=True, size="sm", className='mt-2 ml-2 col-1', style={'display': 'none'}),
+    dbc.Button(html.I(className='fa fa-arrow-left'), id='back-button', color="dark", outline=True, size="sm", className='mt-2 ml-2 col-1', style={'display': 'none'}),
     dbc.CardBody(
         dcc.Loading(
             id='loading-adspend-plots',
@@ -135,6 +151,10 @@ ad_spend_card = dbc.Card([
 revenue_card = dbc.Card([
     dbc.CardHeader(
         html.Div([
+            html.Div(
+                html.Img(src='assets/Metrics.png', height='60px', style={'filter': 'invert(100%)'}),
+                style={'height': '90px', 'width': '90px'}, className='img predictblue',
+            ),
             html.Div('Revenue', style={'padding': '0 7px', 'flex': '0 1 auto'}),
         ], style={'display': 'flex', 'alignItems': 'center'})
     ),
@@ -159,6 +179,10 @@ revenue_card = dbc.Card([
 pie_card = dbc.Card([
     dbc.CardHeader(
         html.Div([
+            html.Div(
+                html.Img(src='assets/Metrics.png', height='60px', style={'filter': 'invert(100%)'}),
+                style={'height': '90px', 'width': '90px'}, className='img prescribeblue',
+            ),
             html.Div('Market Mix Strategy', style={'padding': '0 7px', 'flex': '0 1 auto'}),
         ], style={'display': 'flex', 'alignItems': 'center'})
     ),
