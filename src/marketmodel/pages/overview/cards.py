@@ -45,12 +45,11 @@ return_ad_spend_card = dbc.Card([
             color='#1A2C35',
             children=([
                 html.Div(
-                    id='ad-return-indicator',
-                    style={
-                        'display': 'flex',
-                        'margin': '0 5px',
-                        'alignItems': 'center',
-                    }
+                    dcc.Graph(
+                        id='ad-return-indicator',
+                        style={'height': '100%', 'width': '100%'},
+                        config={'displayModeBar': False, 'displaylogo': False},
+                    )
                 ),
             ])
         )
@@ -71,12 +70,11 @@ total_ad_spend_card = dbc.Card([
             color='#1A2C35',
             children=([
                 html.Div(
-                    id='total-adspend-indicator',
-                    style={
-                        'display': 'flex',
-                        'margin': '0 5px',
-                        'alignItems': 'center',
-                    }
+                    dcc.Graph(
+                        id='total-adspend-indicator',
+                        style={'height': '100%', 'width': '100%'},
+                        config={'displayModeBar': False, 'displaylogo': False},
+                    ),
                 ),
             ])
         )
@@ -97,12 +95,11 @@ revenue_earnings_card = dbc.Card([
             color='#1A2C35',
             children=([
                 html.Div(
-                    id='rev-indicator',
-                    style={
-                        'display': 'flex',
-                        'margin': '0 5px',
-                        'alignItems': 'center',
-                    }
+                    dcc.Graph(
+                        id='rev-indicator',
+                        style={'height': '100%', 'width': '100%'},
+                        config={'displayModeBar': False, 'displaylogo': False},
+                    ),
                 ),
             ])
         )
@@ -123,17 +120,17 @@ ad_spend_card = dbc.Card([
             color='#1A2C35',
             children=([
                 html.Div(
-                    id='adspend-chart',
-                    style={
-                        'display': 'flex',
-                        'margin': '0 5px',
-                        'alignItems': 'center',
-                    }
+                    dcc.Graph(
+                        id='adspend-chart',
+                        style={'height': '100%', 'width': '100%'},
+                        config={'displayModeBar': False, 'displaylogo': False},
+                    ),
                 ),
             ])
         )
     )
 ])
+
 
 revenue_card = dbc.Card([
     dbc.CardHeader(
@@ -148,12 +145,11 @@ revenue_card = dbc.Card([
             color='#1A2C35',
             children=([
                 html.Div(
-                    id='revenue-chart',
-                    style={
-                        'display': 'flex',
-                        'margin': '0 5px',
-                        'alignItems': 'center',
-                    }
+                    dcc.Graph(
+                        id='revenue-chart',
+                        style={'height': '100%', 'width': '100%'},
+                        config={'displayModeBar': False, 'displaylogo': False},
+                    )
                 ),
             ])
         )
@@ -173,12 +169,11 @@ pie_card = dbc.Card([
             color='#1A2C35',
             children=([
                 html.Div(
-                    id='pie-chart',
-                    style={
-                        'display': 'flex',
-                        'margin': '0 5px',
-                        'alignItems': 'center',
-                    }
+                    dcc.Graph(
+                        id='pie-chart',
+                        style={'height': '100%', 'width': '100%'},
+                        config={'displayModeBar': False, 'displaylogo': False},
+                    ),
                 ),
             ])
         )
