@@ -1,0 +1,28 @@
+@import url(fonts/fonts.css);
+* {
+  font-family: 'Helvetica', 'sans-serif'; }
+
+html {
+  font-size: 16px;
+  font-family: 'sans-serif'; }
+
+.img {
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  -webkit-border-radius: 180px;
+  -moz-border-radius: 180px;
+  -ms-border-radius: 180px;
+  -o-border-radius: 180px;
+  border-radius: 50%;
+  justify-content: center; }
+  .img.describeblue {
+    background: #7575FF; }
+  .img.diagnoseblue {
+    background: #0000FE; }
+  .img.predictblue {
+    background: #00008B; }
+  .img.prescribeblue {
+    background: #00003E; }
+
+/*# sourceMappingURL=styles.css.map */
