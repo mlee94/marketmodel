@@ -118,7 +118,7 @@ def ad_spend_per_channel(df):
 
 
 def revenue_time_series(df):
-    fig = px.line(df.get('target'))
+    fig = px.line(df.reset_index(), x='dates', y='target')
     return fig
 
 
@@ -234,7 +234,7 @@ def drilldown(click_data, n_clicks, data):
     if not data:
         raise PreventUpdate
 
-    data = pd.DataFrame.from_dict(data)
+    data = pd.DataFrame.from_dict(data).set_index('dates')
 
     data_stacked = data.stack()
     data_stacked.index = data_stacked.index.rename('attribute', -1)
@@ -258,7 +258,7 @@ def drilldown(click_data, n_clicks, data):
                 channel_sales_df = data_stacked[data_stacked['attribute'] == channel]
 
                 # generating product sales bar graph
-                fig = px.line(channel_sales_df, y='quantity', color='attribute')
+                fig = px.line(channel_sales_df, x='dates', y='quantity', color='attribute')
                 fig.update_layout(title=f'<b>{channel} spend<b>', showlegend=False, template='presentation')
                 return fig, {'display':'block'}     #returning the fig and unhiding the back button
 

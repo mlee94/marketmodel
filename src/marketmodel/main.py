@@ -9,7 +9,7 @@ from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 from lightweight_mmm import utils
 
-from marketmodel.pages import generative, overview
+from marketmodel.pages import generative, overview, transform
 from marketmodel.dash_config import app
 
 
@@ -34,6 +34,8 @@ def load_app(pathname):
         return generative.get_layout()
     elif pathname == '/overview':
         return overview.get_layout()
+    elif pathname == '/model':
+        return transform.get_layout()
 
 
 if __name__ == '__main__':

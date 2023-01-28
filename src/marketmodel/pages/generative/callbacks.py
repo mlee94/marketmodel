@@ -25,9 +25,13 @@ def generate_sample_data(data_size, test_size, n_channels, n_features):
         n_media_channels=n_channels,
         n_extra_features=n_features,
     )
+    date_size = data_size + test_size
+    end_date = pd.Timestamp.now(tz='Australia/Brisbane').tz_localize(None).normalize()
+    date_range = pd.date_range(end=end_date, periods=date_size)
+
     # Convert costs to daily series
     costs = media_data * 0.15
-    params = [media_data, extra_features, target, costs]
+    params = [media_data, extra_features, target, costs, date_range]
     return params
 
 
@@ -46,7 +50,7 @@ def generate_data(n_clicks, data_len, test_len, channel_sz, extra_features_sz):
     if not args:
         raise PreventUpdate
 
-    media_data, extra_features, target, costs = generate_sample_data(
+    media_data, extra_features, target, costs, dates = generate_sample_data(
         data_len,
         test_len,
         channel_sz,
@@ -60,8 +64,11 @@ def generate_data(n_clicks, data_len, test_len, channel_sz, extra_features_sz):
     columns = ['target'] + impressions_col + costs_col + extra_features_col
 
 
-    df = pd.DataFrame(
-        data=np.hstack((target.reshape(-1, 1), media_data, costs, extra_features)),
-        columns=columns
+    df = (
+        pd.DataFrame(
+            data=np.hstack((target.reshape(-1, 1), media_data, costs, extra_features)),
+            columns=columns
+        )
+        .assign(dates=dates)
     )
     return df.to_dict(orient='list') # dcc.send_data_frame(df.to_csv, 'mmm_data.csv')
