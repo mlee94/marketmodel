@@ -53,7 +53,7 @@ tab2_content = [
 
 page_content = dbc.Tabs(
     dbc.Tab(tab1_content, label='Model Training'),
-    dbc.Tab(tab2_content, label='Model Insights'),
+    # dbc.Tab(tab2_content, label='Model Insights'),
 )
 
 

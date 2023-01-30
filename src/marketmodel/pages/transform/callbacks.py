@@ -597,7 +597,8 @@ def generate_response_curves(mmm, target_scaler=None, media_scaler=None):
     )
     fig.update_xaxes(title=media_label)
     fig.update_yaxes(title=kpi_label)
-    fig.write_html('response_curves.html')
+
+    return fig
 
 
 @app.callback(
@@ -637,8 +638,22 @@ def load_mmm(load, train, data):
             .round(3)
         )
 
+    media_effect_hat, roi_hat = mmm.get_posterior_metrics()
+    media_names = mmm.media_names
+
+
+    plot.plot_media_channel_posteriors(media_mix_model=mmm, channel_names=media_names)
+    # Media effect quantifies the strength of the impact of this channel on revenue (but could be expensive)
+    # Rule of thumb would be allocate more budget to high ROI channels and less to low ROI ones.
+    # But good ROI channels might not be scalable (diminishing returns).
+
+    # plot.plot_bars_media_metrics(metric=media_effect_hat, channel_names=media_names)
+    plot.plot_bars_media_metrics(metric=roi_hat, channel_names=media_names)
+
     fig = plotly_plot_media_posteriors4(mmm)
     time_series = generate_time_series_plot(all_data)
     table = generate_summary_table(mmm)
+    fig2 = generate_response_curves(mmm)
+
 
     return fig, time_series, table
