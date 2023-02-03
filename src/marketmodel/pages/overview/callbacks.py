@@ -16,7 +16,12 @@ from lightweight_mmm import preprocessing
 from lightweight_mmm import utils
 
 from marketmodel.pages.overview.content import *
+from marketmodel.pages.transform.callbacks import *
 from marketmodel.dash_config import app
+
+DATA_PATH = Path(__file__).parents[4].joinpath('data')
+
+_PALETTE = px.colors.qualitative.Plotly
 
 
 def create_chart(df):
@@ -111,8 +116,12 @@ def create_chart(df):
 def ad_spend_per_channel(df):
     df = df.rename('totals').astype(int).to_frame()
     df.index = df.index.rename('channel')
+    df = df.assign(percentage=lambda x: (x['totals'] / x['totals'].sum()).round(3))
 
-    fig = px.bar(df.reset_index(), x="totals", y="channel", text='totals', color='channel', orientation='h')
+    fig = px.bar(
+        df.reset_index(), x="percentage", y="channel", text='percentage',
+        hover_data={'totals': True}, color='channel', orientation='h', text_auto='.0%',
+    )
 
     return fig
 
@@ -122,11 +131,11 @@ def revenue_time_series(df):
     return fig
 
 
-def get_pie_chart(df):
+def get_optimal_mix_chart(df):
     df = df.rename('totals').astype(int).to_frame()
     df.index = df.index.rename('channel')
 
-    fig = px.pie(df.reset_index(), values='totals', names='channel')
+    fig = px.bar(df.reset_index(), x='totals', y='channel', text='totals', color='channel', orientation='h')
     return fig
 
 
@@ -136,6 +145,26 @@ def get_return_ad_spend_card(total):
         mode="number",
         value=total,
         number={"font":{"size":35}},
+        domain={'row': 0, 'column': 0}
+    ))
+    fig.update_layout(
+        grid={'rows': 1, 'columns': 1, 'pattern': "independent"},
+        template={'data': {'indicator': [{
+            'mode': "number",
+        }]}
+        },
+        height=200,
+    )
+    return fig
+
+def get_marginal_roas_card(df):
+    avg = df['ROAS'].mean()
+
+    fig = go.Figure()
+    fig.add_trace(go.Indicator(
+        mode="number",
+        value=avg,
+        number={"prefix": "$", "font":{"size":35}},
         domain={'row': 0, 'column': 0}
     ))
     fig.update_layout(
@@ -190,7 +219,7 @@ def get_total_revenue_card(total):
 @app.callback([
     # Output('channel-chart', 'children'),
     Output('revenue-chart', 'figure'),
-    Output('pie-chart', 'figure'),
+    # Output('optimal_mix-chart', 'figure'),
     Output('ad-return-indicator', 'figure'),
     Output('total-adspend-indicator', 'figure'),
     Output('rev-indicator', 'figure'),
@@ -212,13 +241,90 @@ def display_widgets(data):
     # CHARTS
     # fig1 = create_chart(df)
     fig3 = revenue_time_series(df)
-    fig4 = get_pie_chart(cost_totals)
+    # fig4 = get_optimal_mix_chart(cost_totals)
     fig5 = get_return_ad_spend_card(return_on_spend)
     fig6 = get_total_ad_spend_card(cost_totals.sum().astype(int))
     fig7 = get_total_revenue_card(target_total)
 
-    return fig3, fig4, fig5, fig6, fig7
+    return fig3, fig5, fig6, fig7
 
+
+
+
+@app.callback(
+    Output('optimal_mix-chart', 'figure'),
+    Output('marginal-roas-card', 'figure'),
+    Input('sample-data', 'data'),
+    Input('train-model', 'n_clicks'),
+)
+def compute_optimal_mix(data, train):
+    df = pd.DataFrame.from_dict(data)
+
+    # Long function call
+    mmm_cache = 'mmm_test_cache'
+    prediction_cache = 'mmm_predictions.csv'
+
+    train_data, test_data, dates_train, dates_test = train_test_split(df, test_size=10)
+    train_data, test_data, target_scaler, media_scaler, extra_features_scaler = preprocess_data(train_data, test_data)
+    [X_media_test, X_extra_features_test, y_test] = test_data
+
+    if train:
+        mmm, all_data = train_model(train_data, test_data, dates_train, dates_test, target_scaler)
+        # Save mmm and csv file
+        utils.save_model(mmm, DATA_PATH.joinpath(mmm_cache))
+        all_data.to_csv(DATA_PATH.joinpath(prediction_cache), index=True)
+    else:
+        # Otherwise load from file
+        mmm = utils.load_model(DATA_PATH.joinpath(mmm_cache))
+        all_data = (
+            pd.read_csv(DATA_PATH.joinpath(prediction_cache), parse_dates=['dates'])
+            .set_index('dates')
+            .round(3)
+        )
+
+    optimal_model = mmm.model_name + ' ' + str(mmm._degrees_seasonality)
+    optimal_prediction = all_data.get([optimal_model])
+
+    roas_avg, roas_marginal = calculate_ROAS(mmm, test_data, target_scaler, optimal_prediction)
+
+    # point_estimates = (
+    #     pd.concat([
+    #         roas_avg.mean(axis=0).rename_axis('channel').rename('ROAS').to_frame()
+    #         .assign(measure='Average Return on Ad Spend'),
+    #         roas_marginal.mean(axis=0).rename_axis('channel').rename('ROAS').to_frame()
+    #         .assign(measure='Marginal Return on Ad Spend')
+    #     ])
+    # )
+    marginal_return_ad_spend = (
+        roas_marginal.mean(axis=0).rename_axis('channel').rename('ROAS').to_frame()
+        .assign(measure='Marginal Return on Ad Spend')
+    )
+
+    fig2 = get_marginal_roas_card(marginal_return_ad_spend)
+
+    # Get optimal mix
+    budget = 1000 # your *current budget here (+/- 20%).
+    X_media_test_unscaled = media_scaler.inverse_transform(X_media_test)
+    jnp_mean = X_media_test_unscaled.mean()
+    current_budget = X_media_test_unscaled.sum()
+
+    prices = jnp.broadcast_to(np.array([1]), (mmm.n_media_channels))
+    X_extra_features_test = extra_features_scaler.transform(X_extra_features_test)
+
+    solution = optimize_media.find_optimal_budgets(
+        n_time_periods=X_extra_features_test.shape[0],
+        media_mix_model=mmm,
+        budget=budget/jnp_mean,
+        extra_features=X_extra_features_test,
+        prices=prices,
+    )
+    if solution[0]['success']:
+        optimal_budgets = pd.DataFrame((solution[0]['x']) * jnp_mean, index=mmm.media_names).squeeze()
+        fig = ad_spend_per_channel(optimal_budgets)
+
+        return fig, fig2
+    else:
+        print('Optimisation failed')
 
 
 
@@ -242,6 +348,7 @@ def drilldown(click_data, n_clicks, data):
 
     col_totals = data.sum(axis=0)
     channel_totals = col_totals[['cost' in s for s in col_totals.index]]
+    channel_totals.index = [f'channel_{str(int(v)-1)}'for (k, v) in channel_totals.index.str.split('_')]
 
     # using callback context to check which input was fired
     # trigger_id = ctx.triggered[0]["prop_id"].split(".")[0]

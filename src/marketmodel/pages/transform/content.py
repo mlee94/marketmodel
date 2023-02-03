@@ -31,29 +31,51 @@ tab1_content = [
 ]
 
 tab2_content = [
-    html.H1(children='Model Insights"'),
+    html.H1(children='Model Insights'),
     html.Div(
         dbc.Container([
             dbc.Row([
-                dbc.Col(cards.mmm_prediction_card, width=12),
-            ],
-            ),
-            dbc.Row([
-                dbc.Col(cards.mmm_summary_stats, width=12),
-            ], style={'height': '40%'}
-            ),
-            dbc.Row([
-                dbc.Col(cards.posterior_distributions, width=12),
-            ], style={'height': '30%'}
-            )
+                dbc.Col(cards.response_curves, width=12),
+            ]),
+            # dbc.Row([
+            #     dbc.Col(cards.mmm_summary_stats, width=12),
+            # ], style={'height': '40%'}
+            # ),
+            # dbc.Row([
+            #     dbc.Col(cards.posterior_distributions, width=12),
+            # ], style={'height': '30%'}
+            # )
         ])
     )
 ]
 
+tab3_content = [
+    html.H1(children='Return on Ad Spend'),
+    html.Div(
+        dbc.Container([
+            dbc.Row([
+                dbc.Col(cards.roas_summary, width=12),
+            ]),
+            dbc.Row([
+                dbc.Col(cards.roas_marginal, width=12),
+            ]),
+            dbc.Row([
+                dbc.Col(cards.roas_mean, width=12),
+            ], style={'height': '40%'}
+            ),
+            # dbc.Row([
+            #     dbc.Col(cards.posterior_distributions, width=12),
+            # ], style={'height': '30%'}
+            # )
+        ])
+    )
+]
 
-page_content = dbc.Tabs(
+page_content = dbc.Tabs([
     dbc.Tab(tab1_content, label='Model Training'),
-    # dbc.Tab(tab2_content, label='Model Insights'),
+    dbc.Tab(tab2_content, label='Model Insights'),
+    dbc.Tab(tab3_content, label='Return on Ad Spend'),
+    ],
 )
 
 

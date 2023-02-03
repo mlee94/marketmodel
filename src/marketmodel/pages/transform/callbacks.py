@@ -27,7 +27,7 @@ from sklearn.metrics import mean_absolute_percentage_error
 from lightweight_mmm import preprocessing, lightweight_mmm, plot, optimize_media
 from lightweight_mmm import utils
 
-from marketmodel.pages.transform import callbacks, cards
+from marketmodel.pages.transform import cards
 from marketmodel.dash_config import app
 
 
@@ -168,7 +168,7 @@ def preprocess_data(train, test):
     train = [X_media_train, X_cost_train, X_extra_features_train, y_train]
     test = [X_media_test, X_extra_features_test, y_test]
 
-    return train, test, target_scaler
+    return train, test, target_scaler, media_scaler, extra_features_scaler
 
 
 def scale_test_set(test, data_scaler):
@@ -303,11 +303,11 @@ def plotly_plot_media_posteriors4(mmm):
 def train_model(train, test, dates_train, dates_test, target_scaler):
     [X_media_train, X_cost_train, X_extra_features_train, y_train], [X_media_test, X_extra_features_test, y_test] = train, test
 
-    adstock_models = ["adstock", "hill_adstock", "carryover"]
-    degrees_season = [1, 2, 3]
-    #
-    # adstock_models = ["hill_adstock"]
-    # degrees_season = [1]
+    # adstock_models = ["adstock", "hill_adstock", "carryover"]
+    # degrees_season = [1, 2, 3]
+
+    adstock_models = ["hill_adstock"]
+    degrees_season = [1]
 
     numpyro.set_host_device_count(2)
 
@@ -345,7 +345,7 @@ def train_model(train, test, dates_train, dates_test, target_scaler):
 
             mmm_instances[model_name][degrees] = mmm
             models[model_name][degrees] = mape
-            predictions[model_name][degrees] = p
+            predictions[model_name][degrees] = np.array(p)
             print(f"model_name={model_name} degrees={degrees} MAPE={mape} samples={p[:3]}")
 
     end = time.time()
@@ -601,9 +601,96 @@ def generate_response_curves(mmm, target_scaler=None, media_scaler=None):
     return fig
 
 
+def calculate_ROAS(mmm, test, target_scaler, optimal_prediction):
+    [X_media_test, X_extra_features_test, y_test] = test
+
+    marginal_roas = {}
+    channel_roas = {}
+    for idx, channel in enumerate(mmm.media_names):
+        y_hat_0_spend = mmm.predict(
+            media=X_media_test.at[:, idx].set(0),
+            extra_features=X_extra_features_test,
+            target_scaler=target_scaler,
+        )
+        y_hat_historical = jnp.broadcast_to(optimal_prediction.to_numpy().astype(float), y_hat_0_spend.T.shape).T
+        y_hat_delta = jnp.subtract(y_hat_historical, y_hat_0_spend)
+
+        # Sum over time periods
+        posterior_avg_roas = jnp.divide(y_hat_delta.sum(axis=1), X_media_test[:, idx].sum())
+
+        y_hat_1_pct_spend = mmm.predict(
+            # Increase spending of channel i by 1%
+            media=X_media_test.at[:, idx].set(jnp.multiply(X_media_test[:, idx], 1.01)),
+            extra_features=X_extra_features_test,
+            target_scaler=target_scaler,
+        )
+        y_hat_marginal_delta = jnp.subtract(y_hat_1_pct_spend, y_hat_historical)
+
+        # Sum over time periods
+        posterior_marginal_roas = jnp.divide(
+            y_hat_marginal_delta.sum(axis=1),
+            jnp.multiply(X_media_test[:, idx].sum(), 0.01),
+        )
+
+        channel_roas[channel] = posterior_avg_roas
+        marginal_roas[channel] = posterior_marginal_roas
+
+    df1 = pd.DataFrame.from_dict(channel_roas)
+    df2 = pd.DataFrame.from_dict(marginal_roas)
+
+    return df1, df2
+
+
+def plotly_plot_roas_posteriors(df):
+    n_media_channels = len(df.columns)
+
+    fig = make_subplots(
+        rows=n_media_channels, cols=1,
+        row_heights=[1] * n_media_channels,
+        specs=[[{"type": "xy"}]] * n_media_channels,
+        subplot_titles=[f'Media Channel {i}' for i in range(n_media_channels)],
+        shared_xaxes=True,
+        shared_yaxes=True,
+        vertical_spacing=0.1,
+    )
+
+    for idx, channel_i in enumerate(df.columns):
+        y = df.get(channel_i)
+        channel_i = channel_i.replace('_', ' ')
+        group_label = f'Media {channel_i}'
+
+        distplfig = go.Violin(x=y, name=group_label)
+
+        fig.add_trace(
+            distplfig,
+            row=idx+1, col=1,
+        )
+    fig.update_layout(height=1000, barmode='overlay', title_text='Posterior Distributions')
+    fig.update_xaxes(title='ROAS')
+    fig.update_yaxes(title='Probability Density')
+    # fig.write_html('kde_plots.html')
+    return fig
+
+
+def plotly_dot_plot(df):
+    fig = px.scatter(df.reset_index(), y="ROAS", x="channel", color="measure", symbol="measure")
+    fig.update_traces(marker_size=30)
+    return fig
+
+
+def plotly_bar_plot(df):
+    fig = px.bar(df.reset_index(), x="channel", y='ROAS', color="measure", barmode="group")
+
+    return fig
+
+
 @app.callback(
     [
         Output('posterior-violin-plot', 'figure'),
+        Output('response-plots', 'figure'),
+        Output('avg-roas-plots', 'figure'),
+        Output('marginal-roas-plots', 'figure'),
+        Output('summary-roas-plot', 'figure'),
         Output('mmm-prediction-plot', 'figure'),
         Output('mmm-summary-table', 'children'),
     ],
@@ -621,10 +708,10 @@ def load_mmm(load, train, data):
     mmm_cache = 'mmm_test_cache'
     prediction_cache = 'mmm_predictions.csv'
 
-    if train:
-        train_data, test_data, dates_train, dates_test = train_test_split(df, test_size=10)
-        train_data, test_data, target_scaler = preprocess_data(train_data, test_data)
+    train_data, test_data, dates_train, dates_test = train_test_split(df, test_size=10)
+    train_data, test_data, target_scaler, media_scaler, extra_features_scaler = preprocess_data(train_data, test_data)
 
+    if train:
         mmm, all_data = train_model(train_data, test_data, dates_train, dates_test, target_scaler)
         # Save mmm and csv file
         utils.save_model(mmm, DATA_PATH.joinpath(mmm_cache))
@@ -638,22 +725,38 @@ def load_mmm(load, train, data):
             .round(3)
         )
 
+    optimal_model = mmm.model_name + ' ' + str(mmm._degrees_seasonality)
+    optimal_prediction = all_data.get([optimal_model])
+
+    roas_avg, roas_marginal = calculate_ROAS(mmm, test_data, target_scaler, optimal_prediction)
+
+    point_estimates = (
+        pd.concat([
+            roas_avg.mean(axis=0).rename_axis('channel').rename('ROAS').to_frame()
+            .assign(measure='Average Return on Ad Spend'),
+            roas_marginal.mean(axis=0).rename_axis('channel').rename('ROAS').to_frame()
+            .assign(measure='Marginal Return on Ad Spend')
+        ])
+    )
+
     media_effect_hat, roi_hat = mmm.get_posterior_metrics()
     media_names = mmm.media_names
-
-
-    plot.plot_media_channel_posteriors(media_mix_model=mmm, channel_names=media_names)
+    # plot.plot_media_channel_posteriors(media_mix_model=mmm, channel_names=media_names)
     # Media effect quantifies the strength of the impact of this channel on revenue (but could be expensive)
     # Rule of thumb would be allocate more budget to high ROI channels and less to low ROI ones.
     # But good ROI channels might not be scalable (diminishing returns).
 
     # plot.plot_bars_media_metrics(metric=media_effect_hat, channel_names=media_names)
-    plot.plot_bars_media_metrics(metric=roi_hat, channel_names=media_names)
+    # plot.plot_bars_media_metrics(metric=roi_hat, channel_names=media_names)
+    # plot.plot_media_baseline_contribution_area_plot
 
     fig = plotly_plot_media_posteriors4(mmm)
     time_series = generate_time_series_plot(all_data)
     table = generate_summary_table(mmm)
     fig2 = generate_response_curves(mmm)
+    fig3 = plotly_plot_roas_posteriors(roas_avg)
+    fig4 = plotly_plot_roas_posteriors(roas_marginal)
+    fig5 = plotly_dot_plot(point_estimates)
 
 
-    return fig, time_series, table
+    return fig, fig2, fig3, fig4, fig5, time_series, table

@@ -176,7 +176,7 @@ revenue_card = dbc.Card([
     )
 ])
 
-pie_card = dbc.Card([
+optimal_mix_card = dbc.Card([
     dbc.CardHeader(
         html.Div([
             html.Div(
@@ -188,13 +188,43 @@ pie_card = dbc.Card([
     ),
     dbc.CardBody(
         dcc.Loading(
-            id='loading-pie-plots',
+            id='loading-mix-plots',
             type='default',
             color='#1A2C35',
             children=([
                 html.Div(
                     dcc.Graph(
-                        id='pie-chart',
+                        id='optimal_mix-chart',
+                        style={'height': '100%', 'width': '100%'},
+                        config={'displayModeBar': False, 'displaylogo': False},
+                    ),
+                ),
+            ])
+        )
+    )
+])
+
+
+
+marginal_return_ad_spend = dbc.Card([
+    dbc.CardHeader(
+        html.Div([
+            html.Div(
+                html.Img(src='assets/Metrics.png', height='60px', style={'filter': 'invert(100%)'}),
+                style={'height': '90px', 'width': '90px'}, className='img prescribeblue',
+            ),
+            html.Div('Marginal Return on Ad Spend', style={'padding': '0 7px', 'flex': '0 1 auto'}),
+        ], style={'display': 'flex', 'alignItems': 'center'})
+    ),
+    dbc.CardBody(
+        dcc.Loading(
+            id='loading-marginal-roas-card',
+            type='default',
+            color='#1A2C35',
+            children=([
+                html.Div(
+                    dcc.Graph(
+                        id='marginal-roas-card',
                         style={'height': '100%', 'width': '100%'},
                         config={'displayModeBar': False, 'displaylogo': False},
                     ),

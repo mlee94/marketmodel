@@ -1,4 +1,5 @@
 from dash import Dash, html, dcc, Input, Output, State, no_update
+import dash_daq as daq
 import dash_bootstrap_components as dbc
 import pandas as pd
 import plotly.graph_objects as go
@@ -9,6 +10,7 @@ from marketmodel.pages.overview import callbacks, cards
 
 page_content = [
     html.H1(children='Overview'),
+    dbc.Button('Train New Model', id='train-model', color="primary"),
     html.Div(
         dbc.Container([
             dbc.Row([
@@ -23,7 +25,8 @@ page_content = [
             ], style={'height': '40%'}
             ),
             dbc.Row([
-                dbc.Col(cards.pie_card, width=7),
+                dbc.Col(cards.optimal_mix_card, width=7),
+                dbc.Col(cards.marginal_return_ad_spend)
             ], style={'height': '30%'}
             )
         ])
