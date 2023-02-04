@@ -7,6 +7,7 @@ from dash_extensions.enrich import (
     ServersideOutputTransform,
     TriggerTransform,
     MultiplexerTransform,
+    CycleBreakerTransform,
 )
 import dash_bootstrap_components as dbc
 
@@ -33,7 +34,8 @@ app = DashProxy(
     transforms=[
         TriggerTransform(),
         MultiplexerTransform(),
-        ServersideOutputTransform(session_check=False, arg_check=False),
+        CycleBreakerTransform(),
+        ServersideOutputTransform(),
     ]
 )
 server = app.server
