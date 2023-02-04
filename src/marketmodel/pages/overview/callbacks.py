@@ -3,6 +3,7 @@ import numpyro
 
 from dash import Dash, html, dcc, Input, Output, State, no_update, callback_context
 import dash_daq as daq
+from dash_extensions.enrich import CycleBreakerInput
 from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
 import plotly.express as px
@@ -10,6 +11,7 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import time
 
 from lightweight_mmm import lightweight_mmm
 from lightweight_mmm import preprocessing
@@ -127,7 +129,8 @@ def ad_spend_per_channel(df):
 
 
 def revenue_time_series(df):
-    fig = px.line(df.reset_index(), x='dates', y='target')
+    col = df.columns[0]
+    fig = px.line(df.reset_index(), x='dates', y=col)
     return fig
 
 
@@ -164,7 +167,7 @@ def get_marginal_roas_card(df):
     fig.add_trace(go.Indicator(
         mode="number",
         value=avg,
-        number={"prefix": "$", "font":{"size":35}},
+        number={"font":{"size":35}},
         domain={'row': 0, 'column': 0}
     ))
     fig.update_layout(
@@ -173,7 +176,7 @@ def get_marginal_roas_card(df):
             'mode': "number",
         }]}
         },
-        height=200,
+        height=450,
     )
     return fig
 
@@ -218,7 +221,6 @@ def get_total_revenue_card(total):
 
 @app.callback([
     # Output('channel-chart', 'children'),
-    Output('revenue-chart', 'figure'),
     # Output('optimal_mix-chart', 'figure'),
     Output('ad-return-indicator', 'figure'),
     Output('total-adspend-indicator', 'figure'),
@@ -240,24 +242,114 @@ def display_widgets(data):
 
     # CHARTS
     # fig1 = create_chart(df)
-    fig3 = revenue_time_series(df)
     # fig4 = get_optimal_mix_chart(cost_totals)
     fig5 = get_return_ad_spend_card(return_on_spend)
     fig6 = get_total_ad_spend_card(cost_totals.sum().astype(int))
     fig7 = get_total_revenue_card(target_total)
 
-    return fig3, fig5, fig6, fig7
+    return fig5, fig6, fig7
 
+@app.callback(
+    Output('time-step-control', 'value'),
+    CycleBreakerInput('budget-control', 'value'),
+    Input('latest-daily-spending', 'value'),
+    State('time-step-control', 'value'),
+)
+def update_celsius(budget, daily, time_step):
+    if (budget and daily and time_step) is None:
+        raise PreventUpdate()
 
+    time.sleep(1)
+
+    if (budget > (time_step * daily)*1.2) | (budget < (time_step * daily)*0.8):
+        return int(budget / daily)
+    else:
+        raise PreventUpdate()
+
+@app.callback(
+    Output('budget-control', 'value'),
+    Input('time-step-control', 'value'),
+    Input('latest-daily-spending', 'value'),
+    State('budget-control', 'value'),
+)
+def update_fahrenheit(time_step, daily, budget):
+    if (time_step and budget and daily) is None:
+        raise PreventUpdate()
+
+    time.sleep(1)
+
+    if (budget > (time_step * daily)*1.2) | (budget < (time_step * daily)*0.8):
+        return int(time_step * daily)
+    else:
+        raise PreventUpdate()
+
+@app.callback(
+    Output('optimal-mix-chart', 'children'),
+    Input('latest-daily-spending', 'value'),
+    Input('rerun-optimiser', 'n_clicks'),
+    State('budget-control', 'value'),
+    State('time-step-control', 'value'),
+    State('sample-data', 'data'),
+)
+def get_prescription(budget_per_day, n_clicks, budget, time_steps, data):
+    df = pd.DataFrame.from_dict(data)
+
+    # Long function call
+    mmm_cache = 'mmm_test_cache'
+    prediction_cache = 'mmm_predictions.csv'
+
+    train_data, test_data, dates_train, dates_test = train_test_split(df, test_size=10)
+    train_data, test_data, target_scaler, media_scaler, extra_features_scaler = preprocess_data(train_data, test_data)
+    [X_media_test, X_extra_features_test, y_test] = test_data
+
+    mmm = utils.load_model(DATA_PATH.joinpath(mmm_cache))
+    # Get optimal mix
+    X_media_test_unscaled = media_scaler.inverse_transform(X_media_test) # your *current budget here (+/- 20%).
+
+    if not time_steps:
+        time_steps = X_media_test_unscaled.shape[0]
+    if not budget:
+        budget = budget_per_day * time_steps
+
+    jnp_mean = X_media_test_unscaled.mean()
+
+    prices = jnp.broadcast_to(np.array([1]), (mmm.n_media_channels))
+
+    solution = optimize_media.find_optimal_budgets(
+        n_time_periods=time_steps,
+        media_mix_model=mmm,
+        budget=budget/jnp_mean,
+        prices=prices,
+        bounds_lower_pct=.3,
+        bounds_upper_pct=.3,
+    )
+    if solution[0]['success']:
+        optimal_budgets = pd.DataFrame((solution[0]['x']) * jnp_mean, index=mmm.media_names).squeeze()
+        fig = dcc.Graph(
+            id='optimal-mix-fig',
+            figure=ad_spend_per_channel(optimal_budgets),
+            style={'height': '50%', 'width': '100%'},
+            config={'displayModeBar': False, 'displaylogo': False},
+        )
+
+        return fig
+    else:
+        print('Optimisation failed')
 
 
 @app.callback(
-    Output('optimal_mix-chart', 'figure'),
-    Output('marginal-roas-card', 'figure'),
+    Output('revenue-chart', 'figure'),
+    Output('marginal-roas-card', 'children'),
+    Output('latest-daily-spending', 'value'),
+    Output('budget-control', 'value'),
+    Output('time-step-control', 'value'),
     Input('sample-data', 'data'),
     Input('train-model', 'n_clicks'),
 )
-def compute_optimal_mix(data, train):
+def perform_training(data, train):
+    if train is None:
+        pass
+
     df = pd.DataFrame.from_dict(data)
 
     # Long function call
@@ -274,7 +366,6 @@ def compute_optimal_mix(data, train):
         utils.save_model(mmm, DATA_PATH.joinpath(mmm_cache))
         all_data.to_csv(DATA_PATH.joinpath(prediction_cache), index=True)
     else:
-        # Otherwise load from file
         mmm = utils.load_model(DATA_PATH.joinpath(mmm_cache))
         all_data = (
             pd.read_csv(DATA_PATH.joinpath(prediction_cache), parse_dates=['dates'])
@@ -286,45 +377,28 @@ def compute_optimal_mix(data, train):
     optimal_prediction = all_data.get([optimal_model])
 
     roas_avg, roas_marginal = calculate_ROAS(mmm, test_data, target_scaler, optimal_prediction)
-
-    # point_estimates = (
-    #     pd.concat([
-    #         roas_avg.mean(axis=0).rename_axis('channel').rename('ROAS').to_frame()
-    #         .assign(measure='Average Return on Ad Spend'),
-    #         roas_marginal.mean(axis=0).rename_axis('channel').rename('ROAS').to_frame()
-    #         .assign(measure='Marginal Return on Ad Spend')
-    #     ])
-    # )
     marginal_return_ad_spend = (
         roas_marginal.mean(axis=0).rename_axis('channel').rename('ROAS').to_frame()
         .assign(measure='Marginal Return on Ad Spend')
     )
 
-    fig2 = get_marginal_roas_card(marginal_return_ad_spend)
+    fig3 = revenue_time_series(optimal_prediction)
 
-    # Get optimal mix
-    budget = 1000 # your *current budget here (+/- 20%).
+    fig2 = dcc.Graph(
+        id='marginal-roas-fig',
+        figure=get_marginal_roas_card(marginal_return_ad_spend),
+        style={'height': '100%', 'width': '100%'},
+        config={'displayModeBar': False, 'displaylogo': False},
+    ),
+
     X_media_test_unscaled = media_scaler.inverse_transform(X_media_test)
-    jnp_mean = X_media_test_unscaled.mean()
-    current_budget = X_media_test_unscaled.sum()
 
-    prices = jnp.broadcast_to(np.array([1]), (mmm.n_media_channels))
-    X_extra_features_test = extra_features_scaler.transform(X_extra_features_test)
 
-    solution = optimize_media.find_optimal_budgets(
-        n_time_periods=X_extra_features_test.shape[0],
-        media_mix_model=mmm,
-        budget=budget/jnp_mean,
-        extra_features=X_extra_features_test,
-        prices=prices,
-    )
-    if solution[0]['success']:
-        optimal_budgets = pd.DataFrame((solution[0]['x']) * jnp_mean, index=mmm.media_names).squeeze()
-        fig = ad_spend_per_channel(optimal_budgets)
+    budget_per_day = int(X_media_test_unscaled.mean(axis=0).sum())
+    default_time_steps = X_media_test_unscaled.shape[0]
+    default_budget = budget_per_day * default_time_steps
 
-        return fig, fig2
-    else:
-        print('Optimisation failed')
+    return fig3, fig2, budget_per_day, default_budget, default_time_steps
 
 
 

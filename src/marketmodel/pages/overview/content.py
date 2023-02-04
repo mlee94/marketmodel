@@ -17,18 +17,20 @@ page_content = [
                 dbc.Col(cards.return_ad_spend_card, width=4),
                 dbc.Col(cards.total_ad_spend_card, width=4),
                 dbc.Col(cards.revenue_earnings_card, width=4),
-            ], className="h-15"
+            ], className="h-10"
             ),
             dbc.Row([
-                dbc.Col(cards.ad_spend_card, width=7),
+                dbc.Col(cards.ad_spend_card, width=6),
                 dbc.Col(cards.revenue_card),
             ], style={'height': '40%'}
             ),
             dbc.Row([
-                dbc.Col(cards.optimal_mix_card, width=7),
-                dbc.Col(cards.marginal_return_ad_spend)
-            ], style={'height': '30%'}
-            )
+                dbc.Col(cards.optimal_mix_card, width=6),
+                dbc.Col(cards.marginal_return_ad_spend, width=6),
+            ]),
+            dbc.Row([
+                dbc.Col(cards.rerun_mix_card, width=6, style={'display': 'inline-block'}),
+            ]),
         ])
     )
 ]
