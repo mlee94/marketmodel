@@ -114,7 +114,7 @@ def _generate_diagonal_predictions(
 
 
 
-def train_test_split(df, test_size=None):
+def train_test_split(df, mapping, test_size=None):
     if test_size is None:
         test_size = 0
     # Split and scale data.
@@ -122,27 +122,29 @@ def train_test_split(df, test_size=None):
     split_point = data_size - test_size
     print(f'Splitting at data_size ({data_size}) less test_size ({test_size} = {split_point})')
     # Media data
-    dates = df.get(['dates'])
-    df = df.drop(['dates'], axis=1)
+    dates = df.get(mapping['date'])
+    # df = df.drop(['dates'], axis=1)
 
-    media_mask = ['channel' in s for s in df.columns]
-    cost_mask = ['cost' in s for s in df.columns]
-    extra_features_mask = ['extra_feature' in s for s in df.columns]
-    target_mask = ['target' in s for s in df.columns]
+    media = df.get(mapping['media'])
+    cost = df.get(mapping['cost'])
+    extra_features = df.get(mapping.get('extra_features'))
+    target = df.get(mapping['target'])
 
-    train = df.iloc[:split_point:, :].to_numpy()
-    test = df.iloc[split_point:, :].to_numpy()
+    X_media_train = media.to_numpy()[:split_point, :]
+    X_cost_train = cost.to_numpy()[:split_point, :]
+    y_train = target.to_numpy()[:split_point]
+    dates_train = dates.iloc[:split_point].to_numpy()
 
-    X_media_train = train[:, media_mask]
-    X_cost_train = train[:, cost_mask]
-    X_extra_features_train = train[:, extra_features_mask]
-    y_train = train[:, target_mask]
-    dates_train = dates.iloc[:split_point, :].to_numpy()
+    X_media_test = media.to_numpy()[split_point:, :]
+    y_test = target.to_numpy()[split_point:]
+    dates_test = dates.iloc[split_point:].to_numpy()
 
-    X_media_test = test[:, media_mask]
-    X_extra_features_test = test[:, extra_features_mask]
-    y_test = test[:, target_mask]
-    dates_test = dates.iloc[split_point:, :].to_numpy()
+    if not extra_features.empty:
+        X_extra_features_train = extra_features.to_numpy()[:split_point, :]
+        X_extra_features_test = extra_features.to_numpy()[split_point:, :]
+    else:
+        X_extra_features_train = None
+        X_extra_features_test = None
 
     return [X_media_train, X_cost_train, X_extra_features_train, y_train], [X_media_test, X_extra_features_test, y_test], dates_train, dates_test
 
@@ -157,12 +159,19 @@ def preprocess_data(train, test):
 
     X_media_train = media_scaler.fit_transform(X_media_train)
     X_cost_train = cost_scaler.fit_transform(X_cost_train)
-    X_extra_features_train = extra_features_scaler.fit_transform(X_extra_features_train)
+
+    if X_extra_features_train is not None:
+        X_extra_features_train = extra_features_scaler.fit_transform(X_extra_features_train)
+    else:
+        X_extra_features_train = None
 
     y_train = target_scaler.fit_transform(y_train)
 
     X_media_test = media_scaler.transform(X_media_test)
-    X_extra_features_test = extra_features_scaler.transform(X_extra_features_test)
+    if X_extra_features_test is not None:
+        X_extra_features_test = extra_features_scaler.transform(X_extra_features_test)
+    else:
+        X_extra_features_test = None
     # y_test = target_scaler.transform(y_test)
 
     train = [X_media_train, X_cost_train, X_extra_features_train, y_train]
@@ -369,8 +378,9 @@ def train_model(train, test, dates_train, dates_test, target_scaler):
     actuals = (
         pd.DataFrame(np.array(y_test), columns=['quantity'])
         .assign(model_name='actuals')
-        .groupby(['model_name'])
-        .agg({'quantity': 'unique'})
+        # .groupby(['model_name'])
+        # .agg({'quantity': 'unique'})
+        .set_index('model_name')
     )
     all_data = pd.concat([actuals, prediction_time_series]).explode('quantity')
     n_repeats = len(all_data) // len(dates_test)

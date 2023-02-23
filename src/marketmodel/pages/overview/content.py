@@ -10,7 +10,11 @@ from marketmodel.pages.overview import callbacks, cards
 
 page_content = [
     html.H1(children='Overview'),
-    dbc.Button('Train New Model', id='train-model', color="primary"),
+    dbc.Card(children=[
+        daq.BooleanSwitch(label='Test Toggle', id='test-switch', on=False, color="blue"),
+        dbc.Button('Train New Model', id='train-model', color="primary"),
+        ], style={"width": "15%"},
+    ),
     html.Div(
         dbc.Container([
             dbc.Row([

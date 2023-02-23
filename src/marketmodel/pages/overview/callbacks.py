@@ -124,6 +124,7 @@ def ad_spend_per_channel(df):
         df.reset_index(), x="percentage", y="channel", text='percentage',
         hover_data={'totals': True}, color='channel', orientation='h', text_auto='.0%',
     )
+    fig.update_layout(showlegend=False)
 
     return fig
 
@@ -225,19 +226,21 @@ def get_total_revenue_card(total):
     Output('ad-return-indicator', 'figure'),
     Output('total-adspend-indicator', 'figure'),
     Output('rev-indicator', 'figure'),
-], Input('sample-data', 'data'),
+],
+    Input('sample-data', 'data'),
+    State('feature-mapping', 'data'),
     # prevent_initial_call=True,
 )
-def display_widgets(data):
+def display_widgets(data, mapping):
     if not data:
         raise PreventUpdate
 
     df = pd.DataFrame.from_dict(data)
 
     col_totals = df.sum(axis=0)
-    impression_totals = col_totals[['channel' in s for s in col_totals.index]]
-    cost_totals = col_totals[['cost' in s for s in col_totals.index]]
-    target_total = col_totals.loc['target']
+    impression_totals = col_totals[mapping['media']]
+    cost_totals = col_totals.loc[mapping['cost']]
+    target_total = col_totals.loc[mapping['target']]
     return_on_spend = (target_total / cost_totals.sum()).round(2)
 
     # CHARTS
@@ -290,15 +293,23 @@ def update_fahrenheit(time_step, daily, budget):
     State('budget-control', 'value'),
     State('time-step-control', 'value'),
     State('sample-data', 'data'),
+    State('feature-mapping', 'data'),
+    State('test-switch', 'value'),
 )
-def get_prescription(budget_per_day, n_clicks, budget, time_steps, data):
+def get_prescription(budget_per_day, n_clicks, budget, time_steps, data, mapping, test):
+    if test is False:
+        # Use all training data to generate prediction
+        test_size = 0
+    else:
+        test_size = 10
+
     df = pd.DataFrame.from_dict(data)
 
     # Long function call
     mmm_cache = 'mmm_test_cache'
     prediction_cache = 'mmm_predictions.csv'
 
-    train_data, test_data, dates_train, dates_test = train_test_split(df, test_size=10)
+    train_data, test_data, dates_train, dates_test = train_test_split(df, mapping, test_size=test_size)
     train_data, test_data, target_scaler, media_scaler, extra_features_scaler = preprocess_data(train_data, test_data)
     [X_media_test, X_extra_features_test, y_test] = test_data
 
@@ -345,10 +356,18 @@ def get_prescription(budget_per_day, n_clicks, budget, time_steps, data):
     Output('time-step-control', 'value'),
     Input('sample-data', 'data'),
     Input('train-model', 'n_clicks'),
+    State('feature-mapping', 'data'),
+    State('test-switch', 'value'),
 )
-def perform_training(data, train):
+def perform_training(data, train, mapping, test):
     if train is None:
         pass
+
+    if test is False:
+        # Use all training data to generate prediction
+        test_size = None
+    else:
+        test_size = 5
 
     df = pd.DataFrame.from_dict(data)
 
@@ -356,7 +375,8 @@ def perform_training(data, train):
     mmm_cache = 'mmm_test_cache'
     prediction_cache = 'mmm_predictions.csv'
 
-    train_data, test_data, dates_train, dates_test = train_test_split(df, test_size=10)
+    train_data, test_data, dates_train, dates_test = train_test_split(df, mapping, test_size=test_size)
+    # TODO: Logic to separate test from train
     train_data, test_data, target_scaler, media_scaler, extra_features_scaler = preprocess_data(train_data, test_data)
     [X_media_test, X_extra_features_test, y_test] = test_data
 
@@ -408,21 +428,22 @@ def perform_training(data, train):
     Input('adspend-chart', 'clickData'),    #for getting the vendor name from graph
     Input('back-button', 'n_clicks'),
     Input('sample-data', 'data'),
+    State('feature-mapping', 'data'),
 )
-def drilldown(click_data, n_clicks, data):
+def drilldown(click_data, n_clicks, data, mapping):
     # https://community.plotly.com/t/show-and-tell-drill-down-functionality-in-dash-using-callback-context/54403?u=atharvakatre
     if not data:
         raise PreventUpdate
 
-    data = pd.DataFrame.from_dict(data).set_index('dates')
+    data = pd.DataFrame.from_dict(data).set_index([mapping['date']])
 
     data_stacked = data.stack()
     data_stacked.index = data_stacked.index.rename('attribute', -1)
     data_stacked = data_stacked.rename('quantity').to_frame().reset_index()
 
     col_totals = data.sum(axis=0)
-    channel_totals = col_totals[['cost' in s for s in col_totals.index]]
-    channel_totals.index = [f'channel_{str(int(v)-1)}'for (k, v) in channel_totals.index.str.split('_')]
+    channel_totals = col_totals.loc[mapping['cost']]
+    # channel_totals.index = [f'channel_{str(int(v)-1)}'for (k, v) in channel_totals.index.str.split('_')]
 
     # using callback context to check which input was fired
     # trigger_id = ctx.triggered[0]["prop_id"].split(".")[0]
